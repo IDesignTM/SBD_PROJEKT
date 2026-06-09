@@ -20,6 +20,18 @@ drop sequence seq_order_items;
 drop sequence seq_price_hist;
 drop sequence seq_order_hist;
 
+drop trigger trg_roles_id;
+drop trigger trg_order_status_id;
+drop trigger trg_categories_id;
+drop trigger trg_users_id;
+drop trigger trg_products_id;
+drop trigger trg_orders_id;
+drop trigger trg_order_items_id;
+drop trigger trg_price_history_id;
+drop trigger trg_order_history_id;
+drop trigger trg_price_history;
+drop trigger trg_order_status_history;
+
 /* SEKWENCJE */
 
 create sequence seq_roles;
@@ -113,49 +125,76 @@ create table OrderStatusHistory (
 
 /* TRIGGERY UZUPELNIAJACE ID */
 
-create or replace trigger trg_roles_on_insert
-before insert on Roles for each row
+create or replace trigger trg_roles_id
+before insert on Roles
+for each row
 begin
-    select seq_roles.nextval into :new.id from dual;
-end;
-/
-create or replace trigger trg_statuses_on_insert
-before insert on OrderStatus for each row
-begin
-    select seq_order_status.nextval into :new.id from dual;
-end;
-/
-create or replace trigger trg_categories_on_insert
-before insert on Categories for each row
-begin
-    select seq_categories.nextval into :new.id from dual;
-end;
-/
-create or replace trigger trg_users_on_insert
-before insert on Users for each row
-begin
-    select seq_users.nextval into :new.id from dual;
-end;
-/
-create or replace trigger trg_products_on_insert
-before insert on Products for each row
-begin
-    select seq_products.nextval into :new.id from dual;
-end;
-/
-create or replace trigger trg_orders_on_insert
-before insert on Orders for each row
-begin
-    select seq_orders.nextval into :new.id from dual;
-end;
-/
-create or replace trigger trg_items_on_insert
-before insert on OrderItems for each row
-begin
-    select seq_order_items.nextval into :new.id from dual;
+    :new.id := seq_roles.nextval;
 end;
 /
 
+create or replace trigger trg_order_status_id
+before insert on OrderStatus
+for each row
+begin
+    :new.id := seq_order_status.nextval;
+end;
+/
+
+create or replace trigger trg_categories_id
+before insert on Categories
+for each row
+begin
+    :new.id := seq_categories.nextval;
+end;
+/
+
+create or replace trigger trg_users_id
+before insert on Users
+for each row
+begin
+    :new.id := seq_users.nextval;
+end;
+/
+
+create or replace trigger trg_products_id
+before insert on Products
+for each row
+begin
+    :new.id := seq_products.nextval;
+end;
+/
+
+create or replace trigger trg_orders_id
+before insert on Orders for each row
+begin
+    :new.id := seq_orders.nextval;
+end;
+/
+
+create or replace trigger trg_order_items_id
+before insert on OrderItems
+for each row
+begin
+    :new.id := seq_order_items.nextval;
+end;
+/
+
+create or replace trigger trg_price_history_id
+before insert on PriceHistory
+for each row
+begin
+    :new.id := seq_price_hist.nextval;
+end;
+/
+
+create or replace trigger trg_order_history_id
+before insert on OrderStatusHistory
+for each row
+begin
+    :new.id := seq_order_hist.nextval;
+end;
+/
 /* WSTAWIANIE DANYCH SLOWNIKOWYCH */
 
 insert into Roles (RoleName) values ('User');
@@ -177,7 +216,7 @@ commit;
 /* GENEROWANIE DANYCH TESTOWYCH */
 
 begin
-    for i in 1..125 loop
+    for i in 1..1000 loop
         insert into Products (Name, Description, Price, StockQuantity, CategoryID)
         values ('Koszulka ' || i, 'Opis koszulki ' || i, 49.99 + (i * 0.1), 20, 1);
     end loop;
@@ -186,7 +225,7 @@ begin
 end;
 /
 begin
-    for i in 1..125 loop
+    for i in 1..1000 loop
         insert into Products (Name, Description, Price, StockQuantity, CategoryID)
         values ('Spodnie ' || i, 'Opis spodni ' || i, 99.99 + (i * 0.1), 20, 2);
     end loop;
@@ -195,7 +234,7 @@ begin
 end;
 /
 begin
-    for i in 1..125 loop
+    for i in 1..1000 loop
         insert into Products (Name, Description, Price, StockQuantity, CategoryID)
         values ('Kurtka ' || i, 'Opis kurtki ' || i, 399.99 + (i * 0.1), 20, 3);
     end loop;
@@ -204,11 +243,53 @@ begin
 end;
 /
 begin
-    for i in 1..125 loop
+    for i in 1..1000 loop
         insert into Products (Name, Description, Price, StockQuantity, CategoryID)
         values ('Buty ' || i, 'Opis butów ' || i, 299.99 + (i * 0.1), 20, 4);
     end loop;
     
     commit;
+end;
+/
+select * from products;
+
+/* INDEKSY */
+explain plan for
+    select * from products
+    where name = 'Koszulka 999';
+    
+select * from table(dbms_xplan.display());
+
+create index idx_products_name on products(name);
+
+explain plan for
+    select * from products
+    where name = 'Koszulka 999';
+    
+select * from table(dbms_xplan.display());
+
+/* WIDOKI */
+create or replace view vw_products_catalog as
+    select p.id, p.name, p.description, c.categoryname, p.price, p.stockquantity
+    from products p
+    join categories c on p.categoryid = c.id;
+/
+    
+/* TRIGGERY */
+create or replace trigger trg_price_history
+after update of price on products
+for each row
+begin
+    insert into pricehistory (productid,  oldprice, newprice)
+    values (:old.id, :old.price, :new.price);
+end;
+/
+
+create or replace trigger trg_order_status_history
+after update of statusid on orders
+for each row
+begin
+    insert into orderstatushistory (orderid,  oldstatus, newstatus)
+    values (:old.id, :old.statusid, :new.statusid);
 end;
 /
