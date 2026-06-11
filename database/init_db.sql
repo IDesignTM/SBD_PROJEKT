@@ -216,37 +216,49 @@ commit;
 /* GENEROWANIE DANYCH TESTOWYCH */
 
 begin
+    /* PRODUKTY */
     for i in 1..1000 loop
         insert into Products (Name, Description, Price, StockQuantity, CategoryID)
         values ('Koszulka ' || i, 'Opis koszulki ' || i, 49.99 + (i * 0.1), 20, 1);
     end loop;
     
-    commit;
-end;
-/
-begin
     for i in 1..1000 loop
         insert into Products (Name, Description, Price, StockQuantity, CategoryID)
         values ('Spodnie ' || i, 'Opis spodni ' || i, 99.99 + (i * 0.1), 20, 2);
     end loop;
     
-    commit;
-end;
-/
-begin
     for i in 1..1000 loop
         insert into Products (Name, Description, Price, StockQuantity, CategoryID)
         values ('Kurtka ' || i, 'Opis kurtki ' || i, 399.99 + (i * 0.1), 20, 3);
     end loop;
     
-    commit;
-end;
-/
-begin
     for i in 1..1000 loop
         insert into Products (Name, Description, Price, StockQuantity, CategoryID)
         values ('Buty ' || i, 'Opis butów ' || i, 299.99 + (i * 0.1), 20, 4);
     end loop;
+
+    /* UZYTKOWNICY */
+    for i in 1..500 loop
+        insert into Users (FirstName, LastName, Email, PasswordHash, RoleID)
+        values ('User ' || i, 'Nazwisko ' || i, 'user' || i || '@gmail.com', 'hash_' || i, 1);
+    end loop;
+    
+    /* ZAMOWIENIA */
+    for i in 1..750 loop
+        insert into Orders (UserID, StatusID, OrderDate, TotalAmount)
+        values (mod(i, 500) + 1, mod(i, 5) + 1, sysdate, 0);
+        end loop;
+        
+    /* PRZEDMIOTY W ZAMOWIENIACH */
+    for i in 1..1500 loop
+        insert into OrderItems (OrderID, ProductID, Quantity, Price)
+        values (mod(i, 750) + 1, mod(i, 4000) + 1, mod(i, 5) + 1, 100);
+    end loop;
+    
+    update Orders o
+    set o.TotalAmount = ( select nvl(sum(oi.Quantity * oi.Price), 0)
+                            from OrderItems oi
+                            where o.id = oi.OrderID );
     
     commit;
 end;
@@ -293,3 +305,145 @@ begin
     values (:old.id, :old.statusid, :new.statusid);
 end;
 /
+
+/* Pakiet */
+CREATE OR REPLACE PACKAGE OrdersPackage AS
+    PROCEDURE CreateOrder(
+        p_user_id IN NUMBER,
+        p_order_id OUT NUMBER
+    );
+    
+    PROCEDURE AddOrderItem(
+        p_order_id IN NUMBER,
+        p_product_id IN NUMBER,
+        p_quantity IN NUMBER
+    );
+    
+    PROCEDURE ChangeOrderStatus(
+        p_order_id IN NUMBER,
+        p_new_status_id IN NUMBER
+    );
+    
+    FUNCTION CalculateOrderTotal(
+        p_order_id IN NUMBER
+    ) RETURN NUMBER;
+    
+    FUNCTION CheckProductStock(
+        p_product_id IN NUMBER
+    ) RETURN NUMBER;
+        
+END OrdersPackage;
+/
+
+CREATE OR REPLACE PACKAGE BODY OrdersPackage AS
+
+    PROCEDURE CreateOrder(
+        p_user_id IN NUMBER,
+        p_order_id OUT NUMBER
+    ) IS
+    BEGIN
+        INSERT INTO Orders (UserID, StatusID, OrderDate, TotalAmount)
+        VALUES (p_user_id, 1, SYSDATE, 0)
+        RETURNING ID INTO p_order_id;
+    END CreateOrder;
+
+    PROCEDURE AddOrderItem(
+        p_order_id IN NUMBER,
+        p_product_id IN NUMBER,
+        p_quantity IN NUMBER
+    ) IS
+        v_price Products.Price%TYPE;
+        v_stock Products.StockQuantity%TYPE;
+    BEGIN
+        SELECT Price, StockQuantity
+        INTO v_price, v_stock
+        FROM Products
+        WHERE ID = p_product_id;
+
+        IF v_stock < p_quantity THEN
+            RAISE_APPLICATION_ERROR(-20001, 'Brak produktu w magazynie');
+        END IF;
+
+        INSERT INTO OrderItems (OrderID, ProductID, Quantity, Price)
+        VALUES (p_order_id, p_product_id, p_quantity, v_price);
+
+        UPDATE Products
+        SET StockQuantity = StockQuantity - p_quantity
+        WHERE ID = p_product_id;
+        
+        UPDATE Orders
+        SET TotalAmount = TotalAmount + (v_price * p_quantity)
+        WHERE ID = p_order_id;
+    END AddOrderItem;
+    
+    PROCEDURE ChangeOrderStatus(
+        p_order_id IN NUMBER,
+        p_new_status_id IN NUMBER
+    ) IS
+        v_old_status NUMBER;
+    BEGIN
+        SELECT StatusID
+        INTO v_old_status
+        FROM Orders
+        WHERE ID = p_order_id;
+
+        UPDATE Orders
+        SET StatusID = p_new_status_id
+        WHERE ID = p_order_id;
+
+    END ChangeOrderStatus;
+    
+    FUNCTION CalculateOrderTotal(
+        p_order_id IN NUMBER
+    ) RETURN NUMBER
+    IS
+        v_total NUMBER;
+    BEGIN
+        SELECT NVL(SUM(Quantity * Price), 0)
+        INTO v_total
+        FROM OrderItems
+        WHERE OrderID = p_order_id;
+
+        RETURN v_total;
+    END CalculateOrderTotal;
+    
+    FUNCTION CheckProductStock(
+        p_product_id IN NUMBER
+    ) RETURN NUMBER
+    IS
+        v_stock Products.StockQuantity%TYPE;
+    BEGIN
+        SELECT StockQuantity
+        INTO v_stock
+        FROM Products
+        WHERE ID = p_product_id;
+
+        RETURN v_stock;
+    END CheckProductStock;
+    
+END OrdersPackage;
+/
+
+/* INSERT INTO Users
+(ID, FirstName, LastName, Email, PasswordHash, RoleID)
+VALUES
+(1, 'Jan', 'Kowalski', 'jan@test.pl', 'haslo', 1);
+
+COMMIT;
+/ */
+
+/* DECLARE
+    v_order_id NUMBER;
+BEGIN
+    OrdersPackage.CreateOrder(1, v_order_id);
+    OrdersPackage.AddOrderItem(v_order_id, 1, 1);
+END;
+/
+
+EXECUTE OrdersPackage.ChangeOrderStatus(6,5);
+
+SELECT OrdersPackage.CalculateOrderTotal(6)
+FROM DUAL;
+
+SELECT OrdersPackage.CheckProductStock(1)
+FROM dual; */
