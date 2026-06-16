@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SklepSBD")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c9e2f1e956e3b8ec28f3ffc941bfc678a2d1dfe5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4d507a426bcb8b70d07af7626ac5bf87d3baf004")]
 [assembly: System.Reflection.AssemblyProductAttribute("SklepSBD")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SklepSBD")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

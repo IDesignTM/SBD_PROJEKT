@@ -280,6 +280,32 @@ explain plan for
     
 select * from table(dbms_xplan.display());
 
+EXPLAIN PLAN FOR
+    SELECT c.CategoryName, COUNT(oi.ID) AS TotalSales, SUM(oi.Quantity) AS TotalQty
+    FROM Categories c
+    JOIN Products p ON c.id = p.CategoryID
+    JOIN OrderItems oi ON p.id = oi.ProductID
+    WHERE p.Price < (SELECT AVG(Price) FROM Products)
+    GROUP BY c.CategoryName;
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY());
+
+CREATE INDEX idx_prod_cat_price on Products(CategoryID, Price);
+
+EXPLAIN PLAN FOR
+    WITH RankedProducts AS ( 
+        SELECT id, CategoryID, Price, AVG(Price) OVER () AS AvgPrice
+        FROM Products
+    )
+    SELECT c.CategoryName, COUNT(oi.ID) AS TotalSales, SUM(oi.Quantity) AS TotalQty
+    FROM Categories c
+    JOIN RankedProducts rp ON c.id = rp.CategoryID
+    JOIN OrderItems oi ON rp.id = oi.ProductID
+    WHERE rp.Price < rp.AvgPrice
+    GROUP BY c.CategoryName;
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY());
+
 /* WIDOKI */
 create or replace view vw_products_catalog as
     select p.id, p.name, p.description, c.categoryname, p.price, p.stockquantity
@@ -424,21 +450,59 @@ CREATE OR REPLACE PACKAGE BODY OrdersPackage AS
 END OrdersPackage;
 /
 
-select * from products;
+/* Konta użytkowników i audyt */
+/*
+SELECT username, account_status, created 
+FROM dba_users 
+ORDER BY username;
+*/
 
-/* INSERT INTO Users
-(ID, FirstName, LastName, Email, PasswordHash, RoleID)
-VALUES
-(1, 'Jan', 'Kowalski', 'jan@test.pl', 'haslo', 1);
+CREATE USER Admin IDENTIFIED BY "Admin1234!" DEFAULT TABLESPACE users QUOTA UNLIMITED ON users;
+CREATE USER ApplicationIdentity IDENTIFIED BY "Haslo1234!" DEFAULT TABLESPACE users QUOTA UNLIMITED ON users;
 
-COMMIT;
-/ */
+CREATE USER Dev1 IDENTIFIED BY "Dev1234!";
+CREATE USER Dev2 IDENTIFIED BY "Dev1234!";
 
+CREATE ROLE db_procexecutor;
+GRANT EXECUTE ANY PROCEDURE TO db_procexecutor;
+
+GRANT ALL PRIVILEGES TO Admin;
+
+GRANT SELECT ANY TABLE, INSERT ANY TABLE, UPDATE ANY TABLE, DELETE ANY TABLE TO ApplicationIdentity;
+GRANT db_procexecutor TO ApplicationIdentity;
+GRANT CREATE SESSION TO ApplicationIdentity;
+
+GRANT CREATE SESSION TO Dev1;
+GRANT SELECT ANY TABLE TO Dev1;
+
+GRANT CREATE SESSION TO Dev2;
+GRANT SELECT ANY TABLE TO Dev2;
+
+CREATE AUDIT POLICY sklep_audyt
+ACTIONS 
+    SELECT,
+    INSERT,
+    UPDATE,
+    DELETE;
+    
+AUDIT POLICY sklep_audyt;
+
+SELECT event_timestamp, 
+       dbusername, 
+       action_name, 
+       object_schema, 
+       object_name, 
+       sql_text
+FROM UNIFIED_AUDIT_TRAIL
+ORDER BY event_timestamp DESC;
+
+select * from orders;
+select * from orderitems;
 /* DECLARE
     v_order_id NUMBER;
 BEGIN
     OrdersPackage.CreateOrder(1, v_order_id);
-    OrdersPackage.AddOrderItem(v_order_id, 1, 1);
+    OrdersPackage.AddOrderItem(v_order_id, 2, 2);
 END;
 /
 

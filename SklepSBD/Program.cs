@@ -73,6 +73,6 @@ public class AppDbContext : DbContext
 {
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder.UseOracle("User Id=app_identity;Password=AppHaslo123;Data Source=localhost:1521/XEPDB1;");
+        optionsBuilder.UseOracle("User Id=ApplicationIdentity;Password=Haslo1234!;Data Source=localhost:1521/XEPDB1;");
     }
 }
