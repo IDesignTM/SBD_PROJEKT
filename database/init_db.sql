@@ -263,6 +263,22 @@ begin
     commit;
 end;
 /
+select * from products;
+
+/* INDEKSY */
+explain plan for
+    select * from products
+    where name = 'Koszulka 999';
+    
+select * from table(dbms_xplan.display());
+
+create index idx_products_name on products(name);
+
+explain plan for
+    select * from products
+    where name = 'Koszulka 999';
+    
+select * from table(dbms_xplan.display());
 
 /* WIDOKI */
 create or replace view vw_products_catalog as
@@ -408,22 +424,7 @@ CREATE OR REPLACE PACKAGE BODY OrdersPackage AS
 END OrdersPackage;
 /
 
-/* Analiza planów wykonania zapytań i
-poprawa wydajności zapytań
-
-ZAPYTANIE 1 - punkty a, b, c */
-explain plan for
-    select p.name, c.categoryname, oi.quantity
-    from products p
-    join categories c on c.id = p.categoryid
-    join orderitems oi on oi.productid = p.id
-    where p.name = 'Koszulka 50' and p.price > 50
-    order by p.name;
-    
-select * from table(dbms_xplan.display());
-
-/* INDEX PROSTY */
-create index idx_prosty on products(name);
+select * from products;
 
 /* INSERT INTO Users
 (ID, FirstName, LastName, Email, PasswordHash, RoleID)

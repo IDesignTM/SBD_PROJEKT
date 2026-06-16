@@ -1,0 +1,6 @@
+@SklepSBD_HostAddress = http://localhost:5223
+
+GET {{SklepSBD_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
