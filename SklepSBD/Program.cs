@@ -26,8 +26,7 @@ app.MapPost("/api/orders", async (int userID, AppDbContext context) =>
     {
         var orderIDParam = new OracleParameter("p_order_id", OracleDbType.Decimal, ParameterDirection.Output);
 
-        await context.Database.ExecuteSqlRawAsync("BEGIN OrdersPackage.CreateOrder(:p_user_id, :p_order_id); END;",
-            new OracleParameter("p_user_id", userID), orderIDParam);
+        await context.Database.ExecuteSqlRawAsync("BEGIN OrdersPackage.CreateOrder(:p_user_id, :p_order_id); END;", new OracleParameter("p_user_id", userID), orderIDParam);
 
         var orderID = Convert.ToInt32(orderIDParam.Value.ToString());
         return Results.Ok(new { Status = "Sukces", OrderID = orderID });
@@ -51,6 +50,20 @@ app.MapPost("/api/orders/items", async (int orderId, int productId, int quantity
     }
 });
 
+app.MapPut("/api/orders/{id}/status", async (int id, int statusID, AppDbContext context) =>
+{
+    try
+    {
+        await context.Database.ExecuteSqlRawAsync("BEGIN OrdersPackage.ChangeOrderStatus(:p0, :p1); END;", id, statusID);
+            
+        return Results.Ok(new { Status = "Sukces", Message = $"Status zamówienia {id} został zmieniony na {statusID}." });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { Blad = ex.Message });
+    }
+});
+
 app.MapGet("/api/orders/{id}/total", async (int id, AppDbContext context) =>
 {
     try
@@ -60,6 +73,22 @@ app.MapGet("/api/orders/{id}/total", async (int id, AppDbContext context) =>
         await context.Database.ExecuteSqlRawAsync("BEGIN :result := OrdersPackage.CalculateOrderTotal(:p_id); END;", totalParam, new OracleParameter("p_id", id));
 
         return Results.Ok(new { OrderId = id, TotalAmount = totalParam.Value.ToString() });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { Blad = ex.Message });
+    }
+});
+
+app.MapGet("/api/products/{productId}/stock", async (int productId, AppDbContext context) =>
+{
+    try
+    {
+        var stockParam = new OracleParameter("result", OracleDbType.Decimal, ParameterDirection.Output);
+        
+        await context.Database.ExecuteSqlRawAsync("BEGIN :result := OrdersPackage.CheckProductStock(:p_product_id); END;", stockParam, new OracleParameter("p_product_id", productId));
+
+        return Results.Ok(new { ProductId = productId, StockQuantity = Convert.ToInt32(stockParam.Value.ToString()) });
     }
     catch (Exception ex)
     {
