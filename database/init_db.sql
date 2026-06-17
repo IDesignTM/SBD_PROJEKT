@@ -1,14 +1,14 @@
 /* CZYSZCZENIE BAZY */
 
-drop table OrderStatusHistory;
-drop table PriceHistory;
-drop table OrderItems;
-drop table Orders;
-drop table Products;
-drop table Categories;
-drop table Users;
-drop table OrderStatus;
-drop table Roles;
+drop table OrderStatusHistory cascade constraints;
+drop table PriceHistory cascade constraints;
+drop table OrderItems cascade constraints;
+drop table Orders cascade constraints;
+drop table Products cascade constraints;
+drop table Categories cascade constraints;
+drop table Users cascade constraints;
+drop table OrderStatus cascade constraints;
+drop table Roles cascade constraints;
 
 drop sequence seq_roles;
 drop sequence seq_order_status;
@@ -32,6 +32,8 @@ drop trigger trg_order_history_id;
 drop trigger trg_price_history;
 drop trigger trg_order_status_history;
 
+drop view vw_products_catalog;
+
 /* SEKWENCJE */
 
 create sequence seq_roles;
@@ -43,6 +45,8 @@ create sequence seq_orders;
 create sequence seq_order_items;
 create sequence seq_price_hist;
 create sequence seq_order_hist;
+
+drop package OrdersPackage;
 
 /* TABELE SLOWNIKOWE */
 
@@ -263,7 +267,6 @@ begin
     commit;
 end;
 /
-select * from products;
 
 /* INDEKSY */
 explain plan for
@@ -496,8 +499,7 @@ SELECT event_timestamp,
 FROM UNIFIED_AUDIT_TRAIL
 ORDER BY event_timestamp DESC;
 
-select * from orders;
-select * from orderitems;
+create or replace public synonym OrdersPackage for system.OrdersPackage;
 /* DECLARE
     v_order_id NUMBER;
 BEGIN
